@@ -152,10 +152,23 @@ async def send_info():
             embed = create_server_embed(server_info, server_ip, server_port, player_stats)
             try:
                 if last_message_id:
-                    await channel.delete_message(last_message_id)
-                message = await channel.send(embed=embed)
-                last_message_id = message.id
+                    try:
+                        last_message = await channel.fetch_message(last_message_id)
+                        await last_message.edit(embed=embed)
+                        print(f"Message updated successfully: {last_message_id}")
+                    except discord.errors.NotFound:
+                        last_message = await channel.send(embed=embed)
+                        last_message_id = last_message.id
+                        print(f"Message sent successfully: {last_message_id}")
+                    except Exception as e:
+                        print(f"Error updating message: {e}")
+                        traceback.print_exc()
+                else:
+                    last_message = await channel.send(embed=embed)
+                    last_message_id = last_message.id
+                    print(f"Message sent successfully: {last_message_id}")
             except Exception as e:
+                print(f"Error sending/updating message: {e}")
                 traceback.print_exc()
         else:
             print(f"Server not found at {server_ip}:{server_port}")

@@ -2,17 +2,15 @@ import os
 import requests
 import discord
 import re
-import random
 import time
 import asyncio
 import traceback
-from discord.ext import tasks, commands
+import hashlib
+from discord.ext import commands
 from assaultcube_server_reader import get_server_info_and_namelist
 from datetime import datetime, timedelta
+from config import TOKEN, CHANNEL_ID
 import json
-
-TOKEN = 'YOUR_BOT_TOKEN'
-CHANNEL_ID = YOUR_CHANNEL
 
 last_message_id = None
 last_servers_update = None
@@ -52,25 +50,33 @@ gamemode_names = {
 intents = discord.Intents.default()
 bot = commands.Bot(command_prefix='!', intents=intents)
 
-def create_server_embed(server_info, ip, port):
+#Generate a color based on the IP and port.
+def get_color_from_ip_port(ip, port):
+    unique_identifier = f"{ip}:{port}"
+    md5_hash = hashlib.md5(unique_identifier.encode()).hexdigest()
+    color = int(md5_hash[:6], 16)
+    return color
+
+#Create an embed message for a server.
+def create_server_embed(server_info, ip, port, color):
     title = clean_description(server_info["server_description"])
     mastermode_emoji = mastermode_emojis[server_info["mastermode"]]
     gamemode = gamemode_names[server_info["gamemode"]]
     map_name = server_info["server_map"]
-    minutes_remaining = server_info["minutes_remaining"]
+    minutes_remaining = "∞" if gamemode == "Co-operative editing" else server_info["minutes_remaining"]
     online_players = f"{server_info['nb_connected_clients']}/{server_info['max_client']}"
     connect_info = f"/connect {ip} {port - 1}"
 
     embed = discord.Embed(
-        title=f"{title} {mastermode_emoji} `{server_info['mastermode'].capitalize()}`",
-        description=f"**{gamemode}** on map **{map_name}**, **{minutes_remaining} minutes** remaining.\n**{online_players} online** players\n\n{connect_info}",
-        color=random.randint(0, 0xFFFFFF)
+        title=f"{title} {mastermode_emoji} `{server_info['mastermode'].capitalize()}` {online_players} players online",
+        description=f"**{gamemode}** on map **{map_name}**, **{minutes_remaining} minutes** remaining.\n\n{connect_info}",
+        color=color
     )
 
     embed.set_thumbnail(url="https://avatars.githubusercontent.com/u/5957666?s=200&v=4")
-
     return embed
 
+#Retrieve the list of servers from the master server.
 def get_all_servers():
     global last_servers_update, cached_server_list
 
@@ -81,11 +87,7 @@ def get_all_servers():
         response = requests.get("http://ms.cubers.net/retrieve.do?action=list&name=none")
         if response.status_code == 200:
             servers = response.text.splitlines()
-            new_server_list = []
-            for server in servers:
-                if server.startswith("addserver"):
-                    ip, port = server.split()[1], int(server.split()[2]) + 1
-                    new_server_list.append((ip, port))
+            new_server_list = [(server.split()[1], int(server.split()[2]) + 1) for server in servers if server.startswith("addserver")]
 
             with open("ServerListMasterServer.json", "w") as file:
                 json.dump(new_server_list, file)
@@ -101,16 +103,18 @@ def get_all_servers():
 
     return cached_server_list
 
-
+#Clean up server description.
 def clean_description(description):
     return re.sub(r'\f[0-9A-Z]', '', description)
 
+#Event handler when the bot is ready.
 @bot.event
 async def on_ready():
     print(f'{bot.user.name} successfully connected to Discord!')
     print(f"target channel: {CHANNEL_ID}")
     bot.loop.create_task(send_info())
 
+#Periodically send server information to the specified channel.
 async def send_info():
     global last_message_id
     while True:
@@ -119,14 +123,15 @@ async def send_info():
         channel = bot.get_channel(CHANNEL_ID)
 
         all_servers = get_all_servers()
-
         embeds = []
+
         for ip, port in all_servers:
             print(f"Checking server {ip}:{port}")
             try:
                 server_info = get_server_info_and_namelist(ip, port)
                 if server_info["nb_connected_clients"] > 0:
-                    embed = create_server_embed(server_info, ip, port)
+                    color = get_color_from_ip_port(ip, port)
+                    embed = create_server_embed(server_info, ip, port, color)
                     embeds.append(embed)
             except TimeoutError:
                 print(f"TimeoutError: Server {ip}:{port} did not respond.")

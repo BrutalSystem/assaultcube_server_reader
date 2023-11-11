@@ -1,0 +1,5 @@
+# .gitignore
+
+__pycache__/
+config.py
+ServerListMasterServer.json

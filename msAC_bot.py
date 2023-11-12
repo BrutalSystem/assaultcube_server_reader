@@ -1,52 +1,12 @@
-import os
-import requests
-import discord
-import re
-import time
-import asyncio
-import traceback
-import hashlib
+import os, requests, discord, re, time, asyncio, traceback, hashlib, json
 from discord.ext import commands
 from assaultcube_server_reader import get_server_info_and_namelist
 from datetime import datetime, timedelta
-from config import TOKEN, CHANNEL_ID
-import json
+from config import MS_TOKEN, MS_CHANNEL_ID, mastermode_emojis, gamemode_names
 
 last_message_id = None
 last_servers_update = None
 cached_server_list = []
-
-mastermode_emojis = {
-    "OPEN": ":dove:",
-    "PRIVATE": ":closed_lock_with_key:",
-    "MATCH": ":lock:",
-}
-
-gamemode_names = {
-    0: "Team deathmatch",
-    1: "Co-operative editing",
-    2: "Deathmatch",
-    3: "Survivor",
-    4: "Team survivor",
-    5: "Capture the flag",
-    6: "Pistol frenzy",
-    7: "Bot team deathmatch",
-    8: "Bot deathmatch",
-    9: "Last swiss standing",
-    10: "One shot, one kill",
-    11: "Team one shot, one kill",
-    12: "Bot one shot, one kill",
-    13: "Hunt the flag",
-    14: "Team keep the flag",
-    15: "Keep the flag",
-    16: "Team pistol frenzy",
-    17: "Team last swiss standing",
-    18: "Bot pistol frenzy",
-    19: "Bot last swiss standing",
-    20: "Bot team survivor",
-    21: "Bot team one shot",
-}
-
 intents = discord.Intents.default()
 bot = commands.Bot(command_prefix='!', intents=intents)
 
@@ -111,7 +71,7 @@ def clean_description(description):
 @bot.event
 async def on_ready():
     print(f'{bot.user.name} successfully connected to Discord!')
-    print(f"target channel: {CHANNEL_ID}")
+    print(f"target channel: {MS_CHANNEL_ID}")
     bot.loop.create_task(send_info())
 
 #Periodically send server information to the specified channel.
@@ -119,8 +79,8 @@ async def send_info():
     global last_message_id
     while True:
         current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
-        print(f"[{current_time}] Sending information from the server to the channel {CHANNEL_ID}")
-        channel = bot.get_channel(CHANNEL_ID)
+        print(f"[{current_time}] Sending information from the server to the channel {MS_CHANNEL_ID}")
+        channel = bot.get_channel(MS_CHANNEL_ID)
 
         all_servers = get_all_servers()
         embeds = []
@@ -160,4 +120,4 @@ async def send_info():
 
         await asyncio.sleep(60)
 
-bot.run(TOKEN)
+bot.run(MS_TOKEN)

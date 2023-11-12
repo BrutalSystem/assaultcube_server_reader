@@ -1,53 +1,9 @@
-import os
-import requests
-import discord
-import re
-import random
-import time
-import asyncio
-import traceback
-from discord.ext import tasks, commands
+import discord, re, random, time, asyncio, traceback
+from discord.ext import commands
 from assaultcube_server_reader import get_server_info_and_namelist, get_playerstats
-from datetime import datetime, timedelta
-
-TOKEN = 'YOUR_BOT_TOKEN'
-CHANNEL_ID = YOUR_CHANNEL
+from config import SV_TOKEN, SV_CHANNEL_ID, server_ip, server_port, mastermode_emojis, gamemode_names
 
 last_message_id = None
-server_ip = "YOUR_PRIVATE_SERVER"
-server_port = SERVER_PORT_INFO_HERE
-
-mastermode_emojis = {
-    "OPEN": ":dove:",
-    "PRIVATE": ":closed_lock_with_key:",
-    "MATCH": ":lock:",
-}
-
-gamemode_names = {
-    0: "Team deathmatch",
-    1: "Co-operative editing",
-    2: "Deathmatch",
-    3: "Survivor",
-    4: "Team survivor",
-    5: "Capture the flag",
-    6: "Pistol frenzy",
-    7: "Bot team deathmatch",
-    8: "Bot deathmatch",
-    9: "Last swiss standing",
-    10: "One shot, one kill",
-    11: "Team one shot, one kill",
-    12: "Bot one shot, one kill",
-    13: "Hunt the flag",
-    14: "Team keep the flag",
-    15: "Keep the flag",
-    16: "Team pistol frenzy",
-    17: "Team last swiss standing",
-    18: "Bot pistol frenzy",
-    19: "Bot last swiss standing",
-    20: "Bot team survivor",
-    21: "Bot team one shot",
-}
-
 intents = discord.Intents.default()
 bot = commands.Bot(command_prefix='!', intents=intents)
 
@@ -57,15 +13,17 @@ def create_team_rows(players, gamemode, show_stats=True):
         player_name = player["name"][:15].ljust(15)
 
         if show_stats:
-            player_frags = str(player["frags"]).rjust(5)
-            player_deaths = str(player["deaths"]).rjust(6)
-            player_teamkills = str(player["teamkills"]).rjust(3)
+            player_frags = str(player["frags"]).center(5)
+            player_deaths = str(player["deaths"]).center(6)
+            player_teamkills = str(player["teamkills"]).center(3)
+            player_accuracy = f"{player['accuracy']:.0f}%".center(3)
+            player_damage = str(player["damage"]).center(8)
 
-            row = f"{player_name} {player_frags} {player_deaths} {player_teamkills}"
+            row = f"{player_name} {player_frags} {player_deaths} {player_teamkills} {player_accuracy} {player_damage}"
 
             if "flag" in gamemode.lower():
                 player_flags = str(player["flags"]).rjust(4)
-                row = f"{player_name} {player_flags} {player_frags} {player_deaths} {player_teamkills}"
+                row = f"{player_name} {player_flags} {player_frags} {player_deaths} {player_teamkills} {player_accuracy} {player_damage}"
 
             table_rows.append(row)
         else:
@@ -99,15 +57,15 @@ def create_server_embed(server_info, ip, port, player_stats):
         embed_color = random.randint(0, 0xFFFFFF)
 
     embed = discord.Embed(
-        title=f"{title} {mastermode_emoji} `{server_info['mastermode'].capitalize()}`",
-        description=f"**{gamemode}** on map **{map_name}**, **{minutes_remaining} minutes** remaining.\n**{online_players} online** players\n\n{connect_info}",
+        title=f"{title} {mastermode_emoji} `{server_info['mastermode'].capitalize()}` {online_players} players online",
+        description=f"**{gamemode}** on map **{map_name}**, **{minutes_remaining} minutes** remaining.\n\n{connect_info}",
         color=embed_color
     )
 
     if player_stats:
-        header = "```name            frags deaths tks```"
+        header = "```name            frags deaths tks acc damage```"
         if "flag" in gamemode_lower:
-            header = "```name            flags frags deaths tks```"
+            header = "```name            flags frags deaths tks acc damage```"
 
         cla_section = "```CLA```\n" + create_team_rows(cla_players, gamemode_lower)
         rvsf_section = "```RVSF```\n" + create_team_rows(rvsf_players, gamemode_lower)
@@ -136,15 +94,15 @@ def clean_description(description):
 @bot.event
 async def on_ready():
     print(f'{bot.user.name} Successfully connected to Discord!')
-    print(f"Target channel: {CHANNEL_ID}")
+    print(f"Target channel: {SV_CHANNEL_ID}")
     bot.loop.create_task(send_info())
 
 async def send_info():
     global last_message_id
     while True:
         current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
-        print(f"[{current_time}] Sending information from the server to the channel {CHANNEL_ID}")
-        channel = bot.get_channel(CHANNEL_ID)
+        print(f"[{current_time}] Sending information from the server to the channel {SV_CHANNEL_ID}")
+        channel = bot.get_channel(SV_CHANNEL_ID)
         server_info = get_server_info_and_namelist(server_ip, server_port)
 
         if server_info:
@@ -175,6 +133,4 @@ async def send_info():
 
         await asyncio.sleep(60)
 
-bot.run(TOKEN)
-
-
+bot.run(SV_TOKEN)

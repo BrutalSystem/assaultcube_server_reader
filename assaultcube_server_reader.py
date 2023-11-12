@@ -30,9 +30,21 @@ def getint(data):
     Return that int and the data
     See putint and getint in protocol.cpp
     """
+    # Check if there is at least 1 byte in the buffer
+    if len(data) < 1:
+        return 0, data  # Can return a default value or handle differently
+    
     my_int, data, _ = unpack_helper("b", data)
+    
+    # Check if the value is -128, indicating a 2-byte representation
     if my_int[0] == -128:
-        my_int, data, _ = unpack_helper("H", data) # Read the value on 2 bytes (cf putint in protocol.cpp)
+        # Check if there are at least 2 bytes in the buffer
+        if len(data) < 2:
+            return 0, data  # Can return a default value or handle differently
+        
+        # Try reading the value in 2 bytes (cf putint in protocol.cpp)
+        my_int, data, _ = unpack_helper("H", data)
+        
     return my_int[0], data
 
 def getchar(data):
